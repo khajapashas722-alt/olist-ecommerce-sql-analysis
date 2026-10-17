@@ -1,0 +1,6 @@
+*.csv
+*.tsv
+*.dump
+*.sql.bak
+.env
+.DS_Store
