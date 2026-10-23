@@ -74,7 +74,7 @@ SELECT
     LAG(monthly_revenue, 1) OVER (ORDER BY sales_month) AS prior_month_revenue,
     ROUND(
         (monthly_revenue - LAG(monthly_revenue, 1) OVER (ORDER BY sales_month)) / 
-        LAG(monthly_revenue, 1) OVER (ORDER BY sales_month) * 100, 
+        NULLIF(LAG(monthly_revenue, 1) OVER (ORDER BY sales_month), 0) * 100, 
         2
     ) AS mom_growth_pct
 FROM monthly_revenue;
@@ -128,7 +128,7 @@ SELECT
     COUNT(DISTINCT o.order_id) AS order_count,
     ROUND(SUM(oi.price), 2) AS total_item_spend,
     ROUND(SUM(oi.freight_value), 2) AS total_freight_paid,
-    ROUND(SUM(oi.freight_value) / SUM(oi.price) * 100, 2) AS freight_to_price_ratio_pct
+    ROUND(SUM(oi.freight_value) / NULLIF(SUM(oi.price), 0) * 100, 2) AS freight_to_price_ratio_pct
 FROM customers c
 JOIN orders o ON c.customer_id = o.customer_id
 JOIN order_items oi ON o.order_id = oi.order_id

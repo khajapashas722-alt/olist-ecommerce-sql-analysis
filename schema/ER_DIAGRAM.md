@@ -11,6 +11,17 @@ erDiagram
     PRODUCTS ||--o{ ORDER_ITEMS : "ordered in"
     SELLERS ||--o{ ORDER_ITEMS : fulfills
     PRODUCT_CATEGORY_NAME_TRANSLATION ||--o{ PRODUCTS : categorizes
+    GEOLOCATION }o--o{ CUSTOMERS : "locates by zip"
+    GEOLOCATION }o--o{ SELLERS : "locates by zip"
+
+    GEOLOCATION {
+        int geolocation_id PK
+        varchar(10) geolocation_zip_code_prefix
+        decimal(18_15) geolocation_lat
+        decimal(18_15) geolocation_lng
+        varchar(100) geolocation_city
+        char(2) geolocation_state
+    }
 
     CUSTOMERS {
         varchar(32) customer_id PK
@@ -92,3 +103,4 @@ erDiagram
 5. **`PRODUCTS` to `ORDER_ITEMS` (1 : M)**: Products can be ordered multiple times across distinct orders.
 6. **`SELLERS` to `ORDER_ITEMS` (1 : M)**: Marketplace merchants can fulfill multiple ordered items.
 7. **`PRODUCT_CATEGORY_NAME_TRANSLATION` to `PRODUCTS` (1 : M)**: Lookup table mapping Brazilian Portuguese categories to international English names.
+8. **`GEOLOCATION` to `CUSTOMERS` / `SELLERS` (M : N via Zip Prefix)**: Multi-observation spatial coordinate mapping. A Brazilian 5-digit zip code prefix (`CEP`) encompasses multiple spatial coordinate points. Spatial analyses derive centroid coordinates via `AVG(geolocation_lat), AVG(geolocation_lng)` to calculate buyer-merchant freight distances.

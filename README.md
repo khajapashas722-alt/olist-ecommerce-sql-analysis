@@ -7,7 +7,16 @@ A relational database analytics project investigating marketplace commerce, cust
 ## 1. Project Overview & Business Problem
 E-commerce marketplaces depend on coordinated logistics between independent third-party sellers, delivery carriers, and consumers. In vast geographic markets such as Brazil, shipping distances and fulfillment bottlenecks significantly influence operational overhead, freight pricing, and customer churn.
 
-This project designs and deploys a relational schema in **MySQL 8.0** modeling the public Olist Brazilian E-Commerce ecosystem comprising 99,441 orders, 112,650 line items, 103,886 payment records, and 99,224 customer reviews. Through 15 business queries leveraging joins, common table expressions (CTEs), and window functions, we diagnose revenue growth, logistics bottlenecks, payment tender distributions, and repeat purchasing behaviors.
+This project designs and deploys a relational schema in **MySQL 8.0** modeling the public Olist Brazilian E-Commerce ecosystem comprising:
+- **99,441 orders**
+- **112,650 line items**
+- **103,886 payment records**
+- **99,224 customer reviews**
+- **32,951 products**
+- **3,095 marketplace sellers**
+- **1,000,163 geographic coordinate observations**
+
+Through 15 business queries leveraging joins, common table expressions (CTEs), and window functions, we diagnose revenue growth, logistics bottlenecks, payment tender distributions, and repeat purchasing behaviors.
 
 ---
 
@@ -26,7 +35,7 @@ This project designs and deploys a relational schema in **MySQL 8.0** modeling t
 ## 3. Technology Stack & Database Architecture
 - **RDBMS**: MySQL Server 8.0
 - **Database Client**: MySQL Command Line / MySQL Workbench 8.0
-- **SQL Techniques**: Primary & Foreign Key Constraints, B-Tree Indexes, Subqueries, CTEs, Window Functions (`ROW_NUMBER`, `DENSE_RANK`, `SUM() OVER`, `LAG()`), DateTime arithmetic (`DATEDIFF`, `TIMESTAMPDIFF`, `DATE_FORMAT`).
+- **SQL Techniques**: Primary & Foreign Key Constraints, B-Tree Indexes, Subqueries, CTEs, Window Functions (`ROW_NUMBER`, `DENSE_RANK`, `SUM() OVER`, `LAG()`), DateTime arithmetic (`DATEDIFF`, `TIMESTAMPDIFF`, `DATE_FORMAT`), Multi-line text parsing, Safe Idempotent Ingestion.
 
 ---
 
@@ -34,7 +43,7 @@ This project designs and deploys a relational schema in **MySQL 8.0** modeling t
 ```text
 olist-ecommerce-sql-analysis/
 ├── schema/
-│   ├── 01_create_schema.sql           # Complete DDL script with constraints and indexes
+│   ├── 01_create_schema.sql           # Complete DDL script with constraints and indexes (9 tables)
 │   ├── 02_load_data_instructions.sql  # High-performance CSV ingestion & Workbench guide
 │   └── ER_DIAGRAM.md                  # Comprehensive Mermaid Entity-Relationship diagram
 ├── queries/
@@ -61,8 +70,9 @@ olist-ecommerce-sql-analysis/
 | `order_payments`| `(order_id, payment_sequential)` | 103,886 | References `orders.order_id` |
 | `order_reviews` | `(review_id, order_id)` | 99,224 | References `orders.order_id` |
 | `products` | `product_id` | 32,951 | References `product_category_name_translation.product_category_name` |
-| `sellers` | `seller_id` | 3,094 | Referenced by `order_items.seller_id` |
-| `product_category_name_translation` | `product_category_name` | 71 | Referenced by `products.product_category_name` |
+| `sellers` | `seller_id` | 3,095 | Referenced by `order_items.seller_id` |
+| `geolocation` | `geolocation_id` (Auto-Inc) | 1,000,163 | Linked to `customers` & `sellers` via `zip_code_prefix` |
+| `product_category_name_translation` | `product_category_name` | 73 | Referenced by `products.product_category_name` (71 CSV + 2 pre-seeded) |
 
 *(Refer to [schema/ER_DIAGRAM.md](schema/ER_DIAGRAM.md) for the visual Mermaid diagram).*
 
@@ -71,21 +81,64 @@ olist-ecommerce-sql-analysis/
 ## 6. Installation & Execution Guide
 
 ### Prerequisites
-- MySQL Server 8.0 installed and running.
-- MySQL Command Line client or MySQL Workbench.
+1. **MySQL Server 8.0** installed and running locally.
+2. The 9 raw Olist CSV files downloaded from Kaggle into a local folder:
+   - `product_category_name_translation.csv`
+   - `olist_customers_dataset.csv`
+   - `olist_sellers_dataset.csv`
+   - `olist_geolocation_dataset.csv`
+   - `olist_products_dataset.csv`
+   - `olist_orders_dataset.csv`
+   - `olist_order_items_dataset.csv`
+   - `olist_order_payments_dataset.csv`
+   - `olist_order_reviews_dataset.csv`
 
-### Execution Steps
+### Setting Your Local CSV Directory
+In `schema/02_load_data_instructions.sql`, update the base directory path in the `LOAD DATA LOCAL INFILE` statements to match your local setup:
+```sql
+-- Example for Windows:
+LOAD DATA LOCAL INFILE 'C:/Users/YourUsername/Downloads/archive (3)/olist_customers_dataset.csv'
+-- Example for Linux/macOS:
+LOAD DATA LOCAL INFILE '/home/username/data/olist_customers_dataset.csv'
+```
+> [!IMPORTANT]
+> Always use **forward slashes (`/`)** in MySQL file paths on Windows. Backslashes (`\`) are treated as escape characters.
+
+---
+
+### Method A: Execution via MySQL Workbench 8.0 (Recommended GUI)
+
+1. **Enable Local Infile on Connection**:
+   - On the MySQL Workbench home screen, right-click your connection $\rightarrow$ **Edit Connection...**
+   - Select the **Advanced** tab.
+   - In the **Others:** text box at the bottom, enter:
+     ```text
+     OPT_LOCAL_INFILE=1
+     ```
+   - Click **Test Connection**, then click **Close** and open the connection.
+2. **Execute Schema Creation**:
+   - In Workbench, open [`schema/01_create_schema.sql`](schema/01_create_schema.sql) and click the **Execute (Lightning Bolt)** icon.
+3. **Execute Data Ingestion**:
+   - Open [`schema/02_load_data_instructions.sql`](schema/02_load_data_instructions.sql).
+   - Ensure the file path matches your CSV directory.
+   - Execute the entire script. All 9 tables will populate.
+4. **Execute Post-Import Validation**:
+   - Open [`queries/01_data_quality_checks.sql`](queries/01_data_quality_checks.sql) and execute. Verify that all row counts report `MATCH` and duplicate PKs report `0`.
+5. **Execute Business Analytics**:
+   - Open [`queries/02_business_analytical_queries.sql`](queries/02_business_analytical_queries.sql) and run any or all of the 15 queries.
+
+---
+
+### Method B: Execution via Command Line (PowerShell / Bash)
+
 ```bash
-# Connect to MySQL Server 8.0
-mysql -u root -p
-
-# Step 1: Create Database & Tables
+# Step 1: Create Database & Relational Schema
 mysql -u root -p < schema/01_create_schema.sql
 
-# Step 2: Ingest Raw CSV Datasets
+# Step 2: Ingest Raw CSV Datasets with Local Infile Enabled
 mysql --local-infile=1 -u root -p olist_ecommerce < schema/02_load_data_instructions.sql
 
-# Step 3: Run Data Quality Checks
+# Step 3: Run Comprehensive Data Quality Checks
 mysql -u root -p olist_ecommerce < queries/01_data_quality_checks.sql
 
 # Step 4: Execute Analytical Business Queries
@@ -94,7 +147,20 @@ mysql -u root -p olist_ecommerce < queries/02_business_analytical_queries.sql
 
 ---
 
-## 7. Key Findings & Empirical Results
+## 7. Troubleshooting Common MySQL Ingestion & Workbench Errors
+
+| Error Code / Symptom | Root Cause | Exact Solution |
+| :--- | :--- | :--- |
+| **Error Code: 3948**<br>`Loading local data is disabled - this must be enabled on both the client and server sides` | Server or client connection has `local_infile` disabled. | 1. Run `SET GLOBAL local_infile = 1;` in MySQL.<br>2. In Workbench, add `OPT_LOCAL_INFILE=1` to Connection $\rightarrow$ Advanced $\rightarrow$ Others.<br>3. In CLI, pass `--local-infile=1`. |
+| **Error Code: 2068**<br>`LOAD DATA LOCAL INFILE file request was rejected due to restrictions on client side` | MySQL 8 client library blocks local infile by default. | Connect with `mysql --local-infile=1` or configure Workbench connection as described above. |
+| **Error Code: 1175**<br>`You are using safe update mode...` | Workbench prevents `UPDATE` or `DELETE` without a WHERE key clause. | Execute `SET SQL_SAFE_UPDATES = 0;` before running update scripts. |
+| **Error Code: 1452**<br>`Cannot add or update a child row: a foreign key constraint fails` | Upstream Olist product dataset has 2 categories (`pc_gamer` and `portateis_cozinha_e_preparadores_de_alimentos`) missing from the official translation CSV. | The load script pre-seeds these two categories into `product_category_name_translation` via `INSERT IGNORE` before loading products, eliminating this error completely. |
+| **Malformed Review Comments**<br>`Warning 1262 / Lost rows in reviews` | Portuguese review comments often end with emoticons like `:\`, which escapes the closing quote if default backslash escaping is enabled. | Use `FIELDS TERMINATED BY ',' ENCLOSED BY '"' ESCAPED BY ''` in the load statement. |
+| **Trailing `\r` on Windows**<br>`Invalid strings or comparison failures on last column` | Windows line endings (`\r\n`) leave a carriage return on the final column when parsed with `LINES TERMINATED BY '\n'`. | The load script automatically maps the last column to a user variable and applies `TRIM(TRAILING '\r' FROM @var)`. |
+
+---
+
+## 8. Key Findings & Empirical Results
 
 All queries were executed against live MySQL 8.0 with real data:
 
@@ -134,7 +200,7 @@ The top 5 grossing merchandise categories:
 
 ---
 
-## 8. Interview Preparation: 10 Core SQL Questions & Answers
+## 9. Interview Preparation: 10 Core SQL Questions & Answers
 
 ### Q1: What is the difference between `customer_id` and `customer_unique_id` in this dataset?
 **Answer**: In the Olist architecture, a new `customer_id` is created for every purchase transaction (acting as a transaction-specific customer token). `customer_unique_id` identifies the actual natural individual. To compute repeat customer rates or lifetime value, queries must group by `customer_unique_id`.

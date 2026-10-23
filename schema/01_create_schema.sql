@@ -20,10 +20,11 @@ DROP TABLE IF EXISTS order_reviews;
 DROP TABLE IF EXISTS order_payments;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS orders;
-DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS products;
-DROP TABLE IF EXISTS product_category_name_translation;
+DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS sellers;
+DROP TABLE IF EXISTS geolocation;
+DROP TABLE IF EXISTS product_category_name_translation;
 
 CREATE TABLE customers (
     customer_id VARCHAR(32) NOT NULL,
@@ -50,7 +51,25 @@ CREATE TABLE sellers (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------
--- Table 3: product_category_name_translation
+-- Table 3: geolocation
+-- Description: Geographic coordinates (latitude/longitude) per Brazilian zip prefix.
+-- Note: A single zip code prefix can encompass multiple coordinate pings.
+--       In spatial analytics, the zip code centroid is derived via AVG(lat), AVG(lng).
+-- -----------------------------------------------------------------------------
+CREATE TABLE geolocation (
+    geolocation_id INT AUTO_INCREMENT,
+    geolocation_zip_code_prefix VARCHAR(10) NOT NULL,
+    geolocation_lat DECIMAL(18, 15) NOT NULL,
+    geolocation_lng DECIMAL(18, 15) NOT NULL,
+    geolocation_city VARCHAR(100) NOT NULL,
+    geolocation_state CHAR(2) NOT NULL,
+    PRIMARY KEY (geolocation_id),
+    INDEX idx_geo_zip (geolocation_zip_code_prefix),
+    INDEX idx_geo_state (geolocation_state)
+) ENGINE=InnoDB;
+
+-- -----------------------------------------------------------------------------
+-- Table 4: product_category_name_translation
 -- Description: Portuguese to English translation map for product categories.
 -- -----------------------------------------------------------------------------
 CREATE TABLE product_category_name_translation (
@@ -60,8 +79,13 @@ CREATE TABLE product_category_name_translation (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------
--- Table 4: products
+-- Table 5: products
 -- Description: Product catalog attributes, physical dimensions, and category.
+-- Note: product_category_name links to product_category_name_translation.
+--       In data ingestion (02_load_data_instructions.sql), the 2 categories
+--       present in products but missing in translation ('pc_gamer' and
+--       'portateis_cozinha_e_preparadores_de_alimentos') are pre-seeded to
+--       maintain strict referential integrity.
 -- -----------------------------------------------------------------------------
 CREATE TABLE products (
     product_id VARCHAR(32) NOT NULL,
@@ -83,7 +107,7 @@ CREATE TABLE products (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------
--- Table 5: orders
+-- Table 6: orders
 -- Description: Master order table recording purchase and delivery lifecycle timestamps.
 -- -----------------------------------------------------------------------------
 CREATE TABLE orders (
@@ -107,7 +131,7 @@ CREATE TABLE orders (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------
--- Table 6: order_items
+-- Table 7: order_items
 -- Description: Line-item level details linking orders, products, and sellers.
 -- -----------------------------------------------------------------------------
 CREATE TABLE order_items (
@@ -139,7 +163,7 @@ CREATE TABLE order_items (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------
--- Table 7: order_payments
+-- Table 8: order_payments
 -- Description: Financial settlement records per order (installments, tenders).
 -- -----------------------------------------------------------------------------
 CREATE TABLE order_payments (
@@ -158,7 +182,7 @@ CREATE TABLE order_payments (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------
--- Table 8: order_reviews
+-- Table 9: order_reviews
 -- Description: Customer satisfaction scores (1-5) and survey feedback comments.
 -- -----------------------------------------------------------------------------
 CREATE TABLE order_reviews (
